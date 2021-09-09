@@ -1,5 +1,4 @@
 /*----- PROTECTED REGION ID(Serial2Class.cpp) ENABLED START -----*/
-static const char *RcsId      = "$Id: Serial2Class.cpp,v 1.6 2018-05-09 16:05:56 alessio Exp $";
 static const char *TagName    = "Serial2 $Name:  $";
 static const char *CvsPath    = "$Source: /home/cvsadm/cvsroot/fermi/servers/serial2/src/Serial2Class.cpp,v $";
 static const char *SvnPath    = "$HeadURL:  $";
