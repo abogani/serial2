@@ -44,10 +44,21 @@
 
 /*----- PROTECTED REGION END -----*/	//	Serial2.h
 
+#ifdef TANGO_LOG
+	// cppTango after c934adea (Merge branch 'remove-cout-definition' into 'main', 2022-05-23)
+	// nothing to do
+#else
+	// cppTango 9.3-backports and older
+	#define TANGO_LOG       cout
+	#define TANGO_LOG_INFO  cout2
+	#define TANGO_LOG_DEBUG cout3
+#endif // TANGO_LOG
+
 /**
  *  Serial2 class description:
  *    
  */
+
 
 namespace Serial2_ns
 {
@@ -85,21 +96,21 @@ class Serial2 : public TANGO_BASE_CLASS
 //	Device property data members
 public:
 	//	Serialline:	
-	string	serialline;
+	std::string	serialline;
 	//	Charlength:	
 	Tango::DevUShort	charlength;
 	//	Parity:	
-	string	parity;
+	std::string	parity;
 	//	Baudrate:	
 	Tango::DevULong	baudrate;
 	//	Stopbits:	
 	Tango::DevUShort	stopbits;
 	//	Flowcontrol:	
-	string	flowcontrol;
+	std::string	flowcontrol;
 	//	Timeout:	
 	Tango::DevLong	timeout;
 	//	IOMultiplexing:	Use `sleep` for fixed sleep and `select` for ths syscall of the same name
-	string	iOMultiplexing;
+	std::string	iOMultiplexing;
 
 	bool	mandatoryNotDefined;
 
@@ -117,7 +128,7 @@ public:
 	 *	@param cl	Class.
 	 *	@param s 	Device Name
 	 */
-	Serial2(Tango::DeviceClass *cl,string &s);
+	Serial2(Tango::DeviceClass *cl,std::string &s);
 	/**
 	 * Constructs a newly device object.
 	 *
@@ -136,7 +147,7 @@ public:
 	/**
 	 * The device object destructor.
 	 */
-	~Serial2() {delete_device();};
+	~Serial2();
 
 
 //	Miscellaneous methods
@@ -167,15 +178,15 @@ public:
 public:
 	//--------------------------------------------------------
 	/*
-	 *	Method      : Serial2::read_attr_hardware()
-	 *	Description : Hardware acquisition for attributes.
+	 *	Method     : Serial2::read_attr_hardware()
+	 *	Description: Hardware acquisition for attributes.
 	 */
 	//--------------------------------------------------------
-	virtual void read_attr_hardware(vector<long> &attr_list);
+	virtual void read_attr_hardware(std::vector<long> &attr_list);
 
 /**
  *	Attribute InputLength related methods
- *	Description: 
+ *
  *
  *	Data type:	Tango::DevLong
  *	Attr type:	Scalar
@@ -184,7 +195,7 @@ public:
 	virtual bool is_InputLength_allowed(Tango::AttReqType type);
 /**
  *	Attribute OutputLength related methods
- *	Description: 
+ *
  *
  *	Data type:	Tango::DevLong
  *	Attr type:	Scalar
@@ -193,7 +204,7 @@ public:
 	virtual bool is_OutputLength_allowed(Tango::AttReqType type);
 /**
  *	Attribute Reconnections related methods
- *	Description: 
+ *
  *
  *	Data type:	Tango::DevLong
  *	Attr type:	Scalar
@@ -204,8 +215,8 @@ public:
 
 	//--------------------------------------------------------
 	/**
-	 *	Method      : Serial2::add_dynamic_attributes()
-	 *	Description : Add dynamic attributes if any.
+	 *	Method     : Serial2::add_dynamic_attributes()
+	 *	Description: Add dynamic attributes if any.
 	 */
 	//--------------------------------------------------------
 	void add_dynamic_attributes();
@@ -217,27 +228,27 @@ public:
 public:
 	/**
 	 *	Command Write related method
-	 *	Description: 
 	 *
-	 *	@param argin 
+	 *
+	 *	@param argin
 	 */
 	virtual void write(const Tango::DevVarCharArray *argin);
 	virtual bool is_Write_allowed(const CORBA::Any &any);
 	/**
 	 *	Command Read related method
-	 *	Description: 
 	 *
-	 *	@param argin 
-	 *	@returns 
+	 *
+	 *	@param argin
+	 *	@returns
 	 */
 	virtual Tango::DevVarCharArray *read(Tango::DevLong argin);
 	virtual bool is_Read_allowed(const CORBA::Any &any);
 	/**
 	 *	Command ReadUntil related method
-	 *	Description: 
 	 *
-	 *	@param argin 
-	 *	@returns 
+	 *
+	 *	@param argin
+	 *	@returns
 	 */
 	virtual Tango::DevVarCharArray *read_until(const Tango::DevVarCharArray *argin);
 	virtual bool is_ReadUntil_allowed(const CORBA::Any &any);
@@ -245,8 +256,8 @@ public:
 
 	//--------------------------------------------------------
 	/**
-	 *	Method      : Serial2::add_dynamic_commands()
-	 *	Description : Add dynamic commands if any.
+	 *	Method     : Serial2::add_dynamic_commands()
+	 *	Description: Add dynamic commands if any.
 	 */
 	//--------------------------------------------------------
 	void add_dynamic_commands();

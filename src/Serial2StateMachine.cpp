@@ -54,8 +54,8 @@ namespace Serial2_ns
 
 //--------------------------------------------------------
 /**
- *	Method      : Serial2::is_InputLength_allowed()
- *	Description : Execution allowed for InputLength attribute
+ *	Method     : Serial2::is_InputLength_allowed()
+ *	Description: Execution allowed for InputLength attribute
  */
 //--------------------------------------------------------
 bool Serial2::is_InputLength_allowed(TANGO_UNUSED(Tango::AttReqType type))
@@ -70,8 +70,8 @@ bool Serial2::is_InputLength_allowed(TANGO_UNUSED(Tango::AttReqType type))
 
 //--------------------------------------------------------
 /**
- *	Method      : Serial2::is_OutputLength_allowed()
- *	Description : Execution allowed for OutputLength attribute
+ *	Method     : Serial2::is_OutputLength_allowed()
+ *	Description: Execution allowed for OutputLength attribute
  */
 //--------------------------------------------------------
 bool Serial2::is_OutputLength_allowed(TANGO_UNUSED(Tango::AttReqType type))
@@ -86,8 +86,8 @@ bool Serial2::is_OutputLength_allowed(TANGO_UNUSED(Tango::AttReqType type))
 
 //--------------------------------------------------------
 /**
- *	Method      : Serial2::is_Reconnections_allowed()
- *	Description : Execution allowed for Reconnections attribute
+ *	Method     : Serial2::is_Reconnections_allowed()
+ *	Description: Execution allowed for Reconnections attribute
  */
 //--------------------------------------------------------
 bool Serial2::is_Reconnections_allowed(TANGO_UNUSED(Tango::AttReqType type))
@@ -107,8 +107,8 @@ bool Serial2::is_Reconnections_allowed(TANGO_UNUSED(Tango::AttReqType type))
 
 //--------------------------------------------------------
 /**
- *	Method      : Serial2::is_Write_allowed()
- *	Description : Execution allowed for Write attribute
+ *	Method     : Serial2::is_Write_allowed()
+ *	Description: Execution allowed for Write attribute
  */
 //--------------------------------------------------------
 bool Serial2::is_Write_allowed(TANGO_UNUSED(const CORBA::Any &any))
@@ -127,8 +127,8 @@ bool Serial2::is_Write_allowed(TANGO_UNUSED(const CORBA::Any &any))
 
 //--------------------------------------------------------
 /**
- *	Method      : Serial2::is_Read_allowed()
- *	Description : Execution allowed for Read attribute
+ *	Method     : Serial2::is_Read_allowed()
+ *	Description: Execution allowed for Read attribute
  */
 //--------------------------------------------------------
 bool Serial2::is_Read_allowed(TANGO_UNUSED(const CORBA::Any &any))
@@ -147,8 +147,8 @@ bool Serial2::is_Read_allowed(TANGO_UNUSED(const CORBA::Any &any))
 
 //--------------------------------------------------------
 /**
- *	Method      : Serial2::is_ReadUntil_allowed()
- *	Description : Execution allowed for ReadUntil attribute
+ *	Method     : Serial2::is_ReadUntil_allowed()
+ *	Description: Execution allowed for ReadUntil attribute
  */
 //--------------------------------------------------------
 bool Serial2::is_ReadUntil_allowed(TANGO_UNUSED(const CORBA::Any &any))
