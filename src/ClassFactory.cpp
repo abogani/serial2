@@ -1,5 +1,4 @@
 /*----- PROTECTED REGION ID(Serial2::ClassFactory.cpp) ENABLED START -----*/
-static const char *RcsId = "$Id: ClassFactory.cpp,v 1.3 2017-12-21 15:35:38 alessio Exp $";
 //=============================================================================
 //
 // file :        ClassFactory.cpp
