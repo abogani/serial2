@@ -45,7 +45,6 @@
         <type xsi:type="pogoDsl:VoidType"/>
       </argout>
       <status abstract="false" inherited="false" concrete="true" concreteHere="true"/>
-      <excludedStates>FAULT</excludedStates>
       <excludedStates>INIT</excludedStates>
     </commands>
     <commands name="Read" description="" execMethod="read" displayLevel="OPERATOR" polledPeriod="0">
@@ -56,7 +55,6 @@
         <type xsi:type="pogoDsl:CharArrayType"/>
       </argout>
       <status abstract="false" inherited="false" concrete="true" concreteHere="true"/>
-      <excludedStates>FAULT</excludedStates>
       <excludedStates>INIT</excludedStates>
     </commands>
     <commands name="ReadUntil" description="" execMethod="read_until" displayLevel="OPERATOR" polledPeriod="0">
@@ -67,7 +65,6 @@
         <type xsi:type="pogoDsl:CharArrayType"/>
       </argout>
       <status abstract="false" inherited="false" concrete="true" concreteHere="true"/>
-      <excludedStates>FAULT</excludedStates>
       <excludedStates>INIT</excludedStates>
     </commands>
     <attributes name="InputLength" attType="Scalar" rwType="READ" displayLevel="OPERATOR" polledPeriod="0" maxX="" maxY="" allocReadMember="true" isDynamic="false">
