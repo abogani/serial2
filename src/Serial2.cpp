@@ -358,9 +358,7 @@ void Serial2::get_device_property()
 	{
 		multiplexing = SLEEP;
 		DEBUG_STREAM << "Using sleep IO multiplexing type" << endl;
-	}
-	else
-	{
+	} else {
 		multiplexing = SELECT;
 		DEBUG_STREAM << "Using select IO multiplexing type" << endl;
 	}
@@ -418,9 +416,16 @@ void Serial2::always_executed_hook()
 	{
 		set_state(Tango::FAULT);
 		set_status(init_error);
+		return;
 	}
-	else
+
+	tout.tv_sec = timeout / 1000;
+	tout.tv_usec = timeout % 1000 * 1000;
+	if ( ! timerisset( &tout ) )
 	{
+		set_state(Tango::FAULT);
+		set_status("Invalid timeout");
+	} else {
 		check_connection( );
 	}
 
@@ -531,16 +536,6 @@ void Serial2::write(const Tango::DevVarCharArray *argin)
 	/*----- PROTECTED REGION ID(Serial2::write) ENABLED START -----*/
 	check_init();
 	
-	timeval tout;
-	tout.tv_sec = timeout / 1000;
-	tout.tv_usec = timeout % 1000 * 1000;
-	if ( ! timerisset( &tout ) )
-	{
-		Tango::Except::throw_exception( "",
-				"Invalid timeout",
-				"Serial2::write()");
-	}
-
 	char *argin_data = new char[ argin->length() ];
 	for( unsigned int i=0; i<argin->length(); ++i )
 	{
@@ -649,16 +644,6 @@ Tango::DevVarCharArray *Serial2::read(Tango::DevLong argin)
 	/*----- PROTECTED REGION ID(Serial2::read) ENABLED START -----*/
 	check_init();
 
-	timeval tout;
-	tout.tv_sec = timeout / 1000;
-	tout.tv_usec = timeout % 1000 * 1000;
-	if ( ! timerisset( &tout ) )
-	{
-		Tango::Except::throw_exception( "",
-				"Invalid timeout",
-				"Serial2::read()");
-	}
-
 	if (argin < 0)
 	{
 		Tango::Except::throw_exception("",
@@ -703,16 +688,6 @@ Tango::DevVarCharArray *Serial2::read_until(const Tango::DevVarCharArray *argin)
 	DEBUG_STREAM << "Serial2::ReadUntil()  - " << device_name << std::endl;
 	/*----- PROTECTED REGION ID(Serial2::read_until) ENABLED START -----*/
 	check_init();
-
-	timeval tout;
-	tout.tv_sec = timeout / 1000;
-	tout.tv_usec = timeout % 1000 * 1000;
-	if ( ! timerisset( &tout ) )
-	{
-		Tango::Except::throw_exception( "",
-				"Invalid timeout",
-				"Serial2::read_until()");
-	}
 
 	if (argin->length() != 1)
 	{

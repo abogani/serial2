@@ -91,6 +91,8 @@ class Serial2 : public TANGO_BASE_CLASS
 
 	enum { SLEEP, SELECT } multiplexing;
 
+	timeval tout;
+
 /*----- PROTECTED REGION END -----*/	//	Serial2::Data Members
 
 //	Device property data members
