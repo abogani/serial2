@@ -535,7 +535,7 @@ void Serial2::write(const Tango::DevVarCharArray *argin)
 	DEBUG_STREAM << "Serial2::Write()  - " << device_name << std::endl;
 	/*----- PROTECTED REGION ID(Serial2::write) ENABLED START -----*/
 	check_init();
-	
+
 	char *argin_data = new char[ argin->length() ];
 	for( unsigned int i=0; i<argin->length(); ++i )
 	{
@@ -559,13 +559,18 @@ void Serial2::write(const Tango::DevVarCharArray *argin)
 			{
 				delete argin_data;
 
-				string error_mesg = "Connection refused";
-
 				close();
 				open();
+				
+				string error_mesg = "Connection refused";
 				DEBUG_STREAM << error_mesg << endl;
+
 				set_state( Tango::FAULT );
 				set_status( error_mesg );
+
+				sleep( tout.tv_sec );
+				usleep( tout.tv_usec );
+				timerclear( &tout );
 
 				Tango::Except::throw_exception( "",
 						error_mesg,
@@ -613,11 +618,12 @@ void Serial2::write(const Tango::DevVarCharArray *argin)
 
 	if( (bytes_total - output_queue_length()) != bytes_to_write )
 	{
-		string error_mesg = "Unable to send request to device";
-
 		close();
 		open();
+
+		string error_mesg = "Unable to send request to device";
 		DEBUG_STREAM << error_mesg << endl;
+
 		set_state( Tango::FAULT );
 		set_status( error_mesg );
 
@@ -986,9 +992,11 @@ bool Serial2::read(timeval *tv)
 			close();
 			open();
 
-			DEBUG_STREAM << "Server shutting down" << endl;
+			string error_mesg = "Server shutting down";
+			DEBUG_STREAM << error_mesg << endl;
+
 			set_state(Tango::FAULT);
-			set_status("Server shutting down");
+			set_status(error_mesg);
 
 			sleep( tv->tv_sec );
 			usleep( tv->tv_usec );
