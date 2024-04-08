@@ -376,8 +376,9 @@ void Serial2Class::set_default_property()
 		add_wiz_dev_prop(prop_name, prop_desc);
 	prop_name = "IOMultiplexing";
 	prop_desc = "Use `sleep` for fixed sleep and `select` for ths syscall of the same name";
-	prop_def  = "";
+	prop_def  = "SELECT";
 	vect_data.clear();
+	vect_data.push_back("SELECT");
 	if (prop_def.length()>0)
 	{
 		Tango::DbDatum	data(prop_name);

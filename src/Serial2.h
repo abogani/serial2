@@ -40,8 +40,6 @@
 
 #include <tango.h>
 
-#define BUFFER_SIZE 1000
-
 /*----- PROTECTED REGION END -----*/	//	Serial2.h
 
 #ifdef TANGO_LOG
@@ -77,22 +75,17 @@ class Serial2 : public TANGO_BASE_CLASS
 	string init_error;
 
 	int fd;
-	fd_set readfds;
-	fd_set writefds;
-	fd_set errorfds;
-	
-	enum event_type { READ, WRITE };
+	int conn_state;
 
-	unsigned char buffer[ BUFFER_SIZE ];
-	vector< unsigned char > data;
+	enum event_type {READ, WRITE};
 
-	bool connecting;
-	long long reconnections;
+	vector<unsigned char> data;
 
-	enum { SLEEP, SELECT } multiplexing;
+	int reconnections;
 
-	timeval tout;
+	enum {SLEEP, SELECT} multiplexing;
 
+	timeval timeout_timeval, tout;
 /*----- PROTECTED REGION END -----*/	//	Serial2::Data Members
 
 //	Device property data members
@@ -267,20 +260,16 @@ public:
 /*----- PROTECTED REGION ID(Serial2::Additional Method prototypes) ENABLED START -----*/
 
 //	Additional Method prototypes
-	void check_init();
-
+	bool sleep(timeval);
 	void open();
-	void close();
-	void check_connection( );
-	bool wait_for( event_type et, timeval *tv );
-	bool wait_for_with_sleep( event_type et, timeval *tv );
-	bool wait_for_with_select( event_type et, timeval *tv );
-
 	int input_queue_length();
 	int output_queue_length();
-
-	bool read( struct timeval *tv );
-
+	void close();
+	ssize_t _write(int, const void*, size_t);
+	void _read(size_t);
+	void check_state(bool);
+	bool wait_for(event_type);
+	void resolve();
 /*----- PROTECTED REGION END -----*/	//	Serial2::Additional Method prototypes
 };
 

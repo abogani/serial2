@@ -39,11 +39,13 @@
 /*----- PROTECTED REGION END -----*/	//	Serial2::Serial2StateMachine.cpp
 
 //================================================================
-//  States  |  Description
+//  States   |  Description
 //================================================================
-//  ON      |  Connected
-//  FAULT   |  Connection failed
-//  INIT    |  
+//  ON       |  Connected
+//  INIT     |  
+//  UNKNOWN  |  
+//  ALARM    |  
+//  FAULT    |  
 
 
 namespace Serial2_ns
@@ -113,14 +115,10 @@ bool Serial2::is_Reconnections_allowed(TANGO_UNUSED(Tango::AttReqType type))
 //--------------------------------------------------------
 bool Serial2::is_Write_allowed(TANGO_UNUSED(const CORBA::Any &any))
 {
-	//	Compare device state with not allowed states.
-	if (get_state()==Tango::INIT)
-	{
+	//	Not any excluded states for Write command.
 	/*----- PROTECTED REGION ID(Serial2::WriteStateAllowed) ENABLED START -----*/
 	
 	/*----- PROTECTED REGION END -----*/	//	Serial2::WriteStateAllowed
-		return false;
-	}
 	return true;
 }
 
@@ -132,14 +130,10 @@ bool Serial2::is_Write_allowed(TANGO_UNUSED(const CORBA::Any &any))
 //--------------------------------------------------------
 bool Serial2::is_Read_allowed(TANGO_UNUSED(const CORBA::Any &any))
 {
-	//	Compare device state with not allowed states.
-	if (get_state()==Tango::INIT)
-	{
+	//	Not any excluded states for Read command.
 	/*----- PROTECTED REGION ID(Serial2::ReadStateAllowed) ENABLED START -----*/
 	
 	/*----- PROTECTED REGION END -----*/	//	Serial2::ReadStateAllowed
-		return false;
-	}
 	return true;
 }
 
@@ -151,14 +145,10 @@ bool Serial2::is_Read_allowed(TANGO_UNUSED(const CORBA::Any &any))
 //--------------------------------------------------------
 bool Serial2::is_ReadUntil_allowed(TANGO_UNUSED(const CORBA::Any &any))
 {
-	//	Compare device state with not allowed states.
-	if (get_state()==Tango::INIT)
-	{
+	//	Not any excluded states for ReadUntil command.
 	/*----- PROTECTED REGION ID(Serial2::ReadUntilStateAllowed) ENABLED START -----*/
 	
 	/*----- PROTECTED REGION END -----*/	//	Serial2::ReadUntilStateAllowed
-		return false;
-	}
 	return true;
 }
 

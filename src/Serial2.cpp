@@ -92,8 +92,6 @@ Serial2::Serial2(Tango::DeviceClass *cl, std::string &s)
  : TANGO_BASE_CLASS(cl, s.c_str())
 {
 	/*----- PROTECTED REGION ID(Serial2::constructor_1) ENABLED START -----*/
-	reconnections = -1;
-	connecting = false;
 	init_device();
 
 	/*----- PROTECTED REGION END -----*/	//	Serial2::constructor_1
@@ -103,8 +101,6 @@ Serial2::Serial2(Tango::DeviceClass *cl, const char *s)
  : TANGO_BASE_CLASS(cl, s)
 {
 	/*----- PROTECTED REGION ID(Serial2::constructor_2) ENABLED START -----*/
-	reconnections = -1;
-	connecting = false;
 	init_device();
 	
 	/*----- PROTECTED REGION END -----*/	//	Serial2::constructor_2
@@ -114,8 +110,6 @@ Serial2::Serial2(Tango::DeviceClass *cl, const char *s, const char *d)
  : TANGO_BASE_CLASS(cl, s, d)
 {
 	/*----- PROTECTED REGION ID(Serial2::constructor_3) ENABLED START -----*/
-	reconnections = -1;
-	connecting = false;
 	init_device();
 	
 	/*----- PROTECTED REGION END -----*/	//	Serial2::constructor_3
@@ -158,8 +152,8 @@ void Serial2::init_device()
 	/*----- PROTECTED REGION ID(Serial2::init_device_before) ENABLED START -----*/
 	
 	//	Initialization before get_device_property() call
+	reconnections = 0;
 	init_error.clear();
-
 	/*----- PROTECTED REGION END -----*/	//	Serial2::init_device_before
 
 
@@ -174,34 +168,17 @@ void Serial2::init_device()
 		return;
 
 	/*----- PROTECTED REGION ID(Serial2::init_device) ENABLED START -----*/
-	
-	//	Initialize device
-	try
-	{
-		set_state( Tango::INIT );
-		set_status( "Connecting..." );
 
-		if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
-		{
-			ERROR_STREAM << "Fail to ignore SIGPIPE" << endl;
-		}
+	// Disabling SIGPIPE signal
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
+		init_error = "Fail to ignore SIGPIPE signal";
 
+	// Initialize device
+	if (init_error.empty()) {
+		resolve();
 		open();
+		check_state(true);
 	}
-	catch (Tango::DevFailed &e)
-	{
-		init_error = "Initialization failed: " + string(e.errors[0].desc);
-	}
-	catch (...)
-	{
-		init_error = "Initialization failed: Unknown error";
-	}
-
-	if( init_error.empty() )
-	{
-		check_connection( );
-	}
-
 	/*----- PROTECTED REGION END -----*/	//	Serial2::init_device
 }
 
@@ -352,16 +329,23 @@ void Serial2::get_device_property()
 	/*----- PROTECTED REGION ID(Serial2::get_device_property_after) ENABLED START -----*/
 	
 	//	Check device property data members init
-
 	transform(iOMultiplexing.begin(), iOMultiplexing.end(), iOMultiplexing.begin(), ::tolower);
-	if (iOMultiplexing == "sleep")
-	{
+	if (iOMultiplexing == "sleep") {
 		multiplexing = SLEEP;
-		DEBUG_STREAM << "Using sleep IO multiplexing type" << endl;
 	} else {
 		multiplexing = SELECT;
-		DEBUG_STREAM << "Using select IO multiplexing type" << endl;
 	}
+
+	if (timeout <= 0)
+		timeout = 1000;
+
+	DEBUG_STREAM << "Connecting to " << serialline
+		<< " using " << baudrate << " " << charlength << " " << parity 
+		<< " " << stopbits << " (" << flowcontrol << ") and " << iOMultiplexing 
+		<< " IO multiplexing type"  << " with a timeout of " << timeout << " ms "<< endl;
+
+	timeout_timeval.tv_sec = timeout / 1000;
+	timeout_timeval.tv_usec = timeout % 1000 * 1000;
 
 	/*----- PROTECTED REGION END -----*/	//	Serial2::get_device_property_after
 }
@@ -411,22 +395,14 @@ void Serial2::always_executed_hook()
 	/*----- PROTECTED REGION ID(Serial2::always_executed_hook) ENABLED START -----*/
 	
 	//	code always executed before all requests
+	tout = timeout_timeval;
 
-	if (! init_error.empty())
-	{
+	if (! init_error.empty()) {
 		set_state(Tango::FAULT);
 		set_status(init_error);
-		return;
-	}
-
-	tout.tv_sec = timeout / 1000;
-	tout.tv_usec = timeout % 1000 * 1000;
-	if ( ! timerisset( &tout ) )
-	{
-		set_state(Tango::FAULT);
-		set_status("Invalid timeout");
+		DEBUG_STREAM << init_error << endl;
 	} else {
-		check_connection( );
+		check_state(true);
 	}
 
 	/*----- PROTECTED REGION END -----*/	//	Serial2::always_executed_hook
@@ -462,9 +438,16 @@ void Serial2::read_InputLength(Tango::Attribute &attr)
 	DEBUG_STREAM << "Serial2::read_InputLength(Tango::Attribute &attr) entering... " << std::endl;
 	/*----- PROTECTED REGION ID(Serial2::read_InputLength) ENABLED START -----*/
 	//	Set the attribute value
-	attr_InputLength_read[0] = input_queue_length() + data.size(); 
-	attr.set_value(attr_InputLength_read);
-	
+	Tango::AttrQuality qual;
+	long len = input_queue_length();
+	if (len >= 0) {
+		qual = Tango::ATTR_VALID;
+		attr_InputLength_read[0] = len + data.size(); 
+	} else {
+		qual = Tango::ATTR_INVALID;
+		attr_InputLength_read[0] = data.size();
+	}
+	attr.set_value_date_quality(attr_InputLength_read, time(NULL), qual);
 	/*----- PROTECTED REGION END -----*/	//	Serial2::read_InputLength
 }
 //--------------------------------------------------------
@@ -481,9 +464,16 @@ void Serial2::read_OutputLength(Tango::Attribute &attr)
 	DEBUG_STREAM << "Serial2::read_OutputLength(Tango::Attribute &attr) entering... " << std::endl;
 	/*----- PROTECTED REGION ID(Serial2::read_OutputLength) ENABLED START -----*/
 	//	Set the attribute value
-	attr_OutputLength_read[0] = output_queue_length();
-	attr.set_value(attr_OutputLength_read);
-	
+	Tango::AttrQuality qual;
+	long len = output_queue_length();
+	if (len >= 0) {
+		qual = Tango::ATTR_VALID;
+		attr_OutputLength_read[0] = len;
+	}	else {
+		qual = Tango::ATTR_INVALID;
+		attr_OutputLength_read[0] = 0;
+	}
+	attr.set_value_date_quality(attr_OutputLength_read, time(NULL), qual);
 	/*----- PROTECTED REGION END -----*/	//	Serial2::read_OutputLength
 }
 //--------------------------------------------------------
@@ -534,104 +524,55 @@ void Serial2::write(const Tango::DevVarCharArray *argin)
 {
 	DEBUG_STREAM << "Serial2::Write()  - " << device_name << std::endl;
 	/*----- PROTECTED REGION ID(Serial2::write) ENABLED START -----*/
-	check_init();
-
-	char *argin_data = new char[ argin->length() ];
-	for( unsigned int i=0; i<argin->length(); ++i )
-	{
-		argin_data[i] = (*argin)[i];
+	if (! init_error.empty()) {
+		sleep(tout);
+		Tango::Except::throw_exception(
+				"", init_error.c_str(), __PRETTY_FUNCTION__);
 	}
 
-	int bytes_total = 0, bytes_to_write = argin->length();
-	while (bytes_total != bytes_to_write &&  wait_for( WRITE, &tout ) )
-	{
-		int bytes_written;
-		bytes_written = ::write(fd, argin_data + bytes_total, bytes_to_write - bytes_total);
-		if (bytes_written < 0)
-		{
-			DEBUG_STREAM << strerror( errno ) << " (" << errno << ")" << endl;
-			if( errno == EINTR )
-			{
-				continue;
-			}
+	vector<unsigned char> argin_data;
+	argin_data << *argin;
+	size_t bytes_total = 0, bytes_to_write = argin_data.size();
+	int olength;
 
-			if( errno == ECONNREFUSED )
-			{
-				delete argin_data;
+	while (bytes_total < bytes_to_write) {
+		if (! wait_for(WRITE))
+			goto timeout;
 
-				close();
-				open();
-				
-				string error_mesg = "Connection refused";
-				DEBUG_STREAM << error_mesg << endl;
+		ssize_t bytes_written = _write(
+				fd, argin_data.data() + bytes_total,
+				bytes_to_write - bytes_total);
 
-				set_state( Tango::FAULT );
-				set_status( error_mesg );
-
-				sleep( tout.tv_sec );
-				usleep( tout.tv_usec );
-				timerclear( &tout );
-
-				Tango::Except::throw_exception( "",
-						error_mesg,
-						"Serial2::write()");
-			}
-
-			ERROR_STREAM << "write() error not handled:" << endl;
-			assert( false );
-		}
-		else if( bytes_written == 0 )
-		{
-			assert( false );
-		}
-		else /* bytes_written > 0 */
-		{
+		if ( bytes_written > 0) {
 			bytes_total += bytes_written;
-		}
-	}
-	delete argin_data;
-	
-	timeval time_to_wait;
-	time_to_wait.tv_sec = 0;
-	time_to_wait.tv_usec = 1000;
-
-	while ( output_queue_length() )
-	{
-		timeval newtimeout;
-		timersub( &tout, &time_to_wait, &newtimeout );
-		if( newtimeout.tv_sec >= 0 && newtimeout.tv_usec >= 0 )
-		{
-			sleep( time_to_wait.tv_sec );
-			usleep( time_to_wait.tv_usec );
-
-			tout = newtimeout;
-			timeradd( &time_to_wait, &time_to_wait, &time_to_wait );
-		}
-		else
-		{
-			sleep( tout.tv_sec );
-			usleep( tout.tv_usec );
-			timerclear( &tout );
-			break;
+		} else if (bytes_written == 0) {
+			if (multiplexing == SELECT)
+				goto error;
+			/* Continue if multiplexing == SLEEP */
+		} else { /* bytes_written < 0 */
+			goto error;
 		}
 	}
 
-	if( (bytes_total - output_queue_length()) != bytes_to_write )
-	{
-		close();
-		open();
-
-		string error_mesg = "Unable to send request to device";
-		DEBUG_STREAM << error_mesg << endl;
-
-		set_state( Tango::FAULT );
-		set_status( error_mesg );
-
-		Tango::Except::throw_exception( "",
-				error_mesg,
-				"Serial2::write()");
+	timeval twait;
+	timerclear(&twait);
+	twait.tv_usec = 1000;
+	olength = max(output_queue_length(), 0);
+	while ((bytes_total - olength) != bytes_to_write) {
+		if (! sleep(twait))
+			goto timeout;
+		timeradd(&twait, &twait, &twait);
+		olength = max(output_queue_length(), 0);
 	}
 
+	return;
+
+error:
+	check_state(false);
+	sleep(tout);
+timeout:
+	Tango::Except::throw_exception(
+			"", "Timeout expired", __PRETTY_FUNCTION__);
 	/*----- PROTECTED REGION END -----*/	//	Serial2::write
 }
 //--------------------------------------------------------
@@ -648,34 +589,24 @@ Tango::DevVarCharArray *Serial2::read(Tango::DevLong argin)
 	Tango::DevVarCharArray *argout;
 	DEBUG_STREAM << "Serial2::Read()  - " << device_name << std::endl;
 	/*----- PROTECTED REGION ID(Serial2::read) ENABLED START -----*/
-	check_init();
-
-	if (argin < 0)
-	{
-		Tango::Except::throw_exception("",
-				"Input has to be in positive range",
-				"Serial2::read()");
+	if (! init_error.empty()) {
+		sleep(tout);
+		Tango::Except::throw_exception(
+				"", init_error.c_str(), __PRETTY_FUNCTION__);
 	}
 
-	while( (size_t)argin > data.size() )
-	{
-		if ( ! wait_for( READ, &tout ) )
-		{
-			string mesg( "No response from device" );
-			DEBUG_STREAM << mesg << endl;
-			Tango::Except::throw_exception("",
-					mesg, "Serial2::read()");
-		}
+	if (argin < 0) {
+		sleep(tout);
+		Tango::Except::throw_exception(
+				"", "Out of limit", __PRETTY_FUNCTION__);
 	}
+
+	_read(argin);
 
 	argout = new Tango::DevVarCharArray();
-	argout->length(argin);
-	for( int i=0; i<argin; ++i )
-	{
-		(*argout)[i] = data[i];
-	}
-	data.erase( data.begin(), data.begin() + argin );
-
+	vector<unsigned char> transfer(data.begin(), data.begin() + argin);
+	data.erase(data.begin(), data.begin() + argin);
+	*argout << transfer;
 	/*----- PROTECTED REGION END -----*/	//	Serial2::read
 	return argout;
 }
@@ -693,47 +624,39 @@ Tango::DevVarCharArray *Serial2::read_until(const Tango::DevVarCharArray *argin)
 	Tango::DevVarCharArray *argout;
 	DEBUG_STREAM << "Serial2::ReadUntil()  - " << device_name << std::endl;
 	/*----- PROTECTED REGION ID(Serial2::read_until) ENABLED START -----*/
-	check_init();
+	if (! init_error.empty()) {
+		sleep(tout);
+		Tango::Except::throw_exception(
+				"", init_error.c_str(), __PRETTY_FUNCTION__);
+	}
 
-	if (argin->length() != 1)
-	{
-		Tango::Except::throw_exception("",
-				"Delimiter has to be one byte length",
-				"Serial2::read_until()");
+	if (argin->length() != 1) {
+		sleep(tout);
+		Tango::Except::throw_exception(
+				"", "Delimiter has to be exactly one byte", __PRETTY_FUNCTION__);
 	}
 
 	char delim = (*argin)[0];
+	size_t pos = 0, dsize;
 	bool found = false;
-	size_t pos;
 
-	while( ! found )
-	{
-		for( pos = 0; pos < data.size(); ++pos )
-		{
-			if (memcmp(&data[pos], &delim, 1) == 0)
-			{
+	do {
+		dsize = data.size();
+		for (; pos < dsize; ++pos) {
+			if (memcmp(&data[pos], &delim, 1) == 0)	{
 				found = true;
 				break;
 			}
 		}
-		if ( ! found && ! wait_for( READ, &tout ) )
-		{
-			string mesg( "No response from device" );
-			DEBUG_STREAM << mesg << endl;
-			Tango::Except::throw_exception("",
-					mesg, "Serial2::read_until()");
-		}
-	}
-
+		if (found)
+			break;
+		_read(dsize + 1);
+	} while (true);
 
 	argout = new Tango::DevVarCharArray();
-	argout->length( pos+1 );
-	for( size_t i = 0; i < pos + 1; ++i )
-	{
-		(*argout)[i] = data[i];
-	}
-	data.erase( data.begin(), data.begin() + pos + 1 );
-
+	vector<unsigned char> transfer(data.begin(), data.begin() + pos +1);
+	data.erase(data.begin(), data.begin() + pos + 1);
+	*argout << transfer;
 	/*----- PROTECTED REGION END -----*/	//	Serial2::read_until
 	return argout;
 }
@@ -756,30 +679,32 @@ void Serial2::add_dynamic_commands()
 /*----- PROTECTED REGION ID(Serial2::namespace_ending) ENABLED START -----*/
 
 //	Additional Methods
-void Serial2::check_init()
+bool Serial2::sleep(timeval tv)
 {
-	if (! init_error.empty() )
-	{
-		DEBUG_STREAM << init_error << endl;
-		Tango::Except::throw_exception( "",
-				init_error.c_str(),
-				"Serial2::check_init()");
+	if (! timerisset(&tout))
+		return false;
+
+	if (timercmp(&tout, &tv, <)) {
+		::sleep(tout.tv_sec);
+		usleep(tout.tv_usec);
+		timerclear(&tout);
+	} else { // tout >= tv
+		::sleep(tv.tv_sec);
+		usleep(tv.tv_usec);
+		timersub(&tout, &tv, &tout);
+		assert(tout.tv_sec >= 0 && tout.tv_usec >= 0);
 	}
+	return true;
 }
 
 void Serial2::open()
 {
 	DEBUG_STREAM << "Creating the file descriptor..." << endl;
 
-	if ((fd = ::open(serialline.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK)) == -1)
-	{
-		string error_mesg = "Open device node failed: "
-			+ string(strerror( errno ));
-		ERROR_STREAM << error_mesg << endl;
-		assert( false);
-		Tango::Except::throw_exception( "",
-				error_mesg,
-				"Serial2::open()");
+	if ((fd = ::open(serialline.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK)) == -1) {
+		ERROR_STREAM << "Open device node failed: "
+			<< string(strerror(errno)) << endl;
+		return;
 	}
 
 	// Common
@@ -829,15 +754,10 @@ void Serial2::open()
 			options.c_cflag |= CSTOPB;
 			break;
 		default:
-			{
-				string error_mesg = "Error setting stop bits parameter!"
-					+ string(strerror( errno ));
-				ERROR_STREAM << error_mesg << endl;
-				assert( false);
-				Tango::Except::throw_exception( "",
-						error_mesg,
-						"Serial2::open()");
-			}
+			::close(fd);
+			ERROR_STREAM << "Error setting stop bits parameter!"
+				<< string(strerror(errno)) << endl;
+			return;
 	}
 
 	// Parity bits
@@ -850,15 +770,11 @@ void Serial2::open()
 		options.c_cflag |= PARODD;
 	} else if (parity == "none" ) {
 		options.c_cflag &= ~PARENB;
-	} else
-	{
-		string error_mesg = "Error setting parity bits parameter!"
-			+ string(strerror( errno ));
-		ERROR_STREAM << error_mesg << endl;
-		assert( false);
-		Tango::Except::throw_exception( "",
-				error_mesg,
-				"Serial2::open()");
+	} else {
+		::close(fd);
+		ERROR_STREAM << "Error setting parity bits parameter!"
+			<< string(strerror(errno)) << endl;
+		return;
 	}
 
 	// Flow control
@@ -866,58 +782,60 @@ void Serial2::open()
 	options.c_iflag &= ~(IXON | IXOFF | IXANY);
 	options.c_cflag &= ~CRTSCTS;
 
-
 	if (flowcontrol == "xonxoff") {
 		options.c_iflag |= (IXON | IXOFF | IXANY);
 	} else if (flowcontrol == "rtscts") {
 		options.c_cflag |= CRTSCTS;
 	} else if (flowcontrol == "dtrdsr") {
-		string error_mesg = "Flow control DTRDSR isn't supported yet!"
-			+ string(strerror( errno ));
-		ERROR_STREAM << error_mesg << endl;
-		assert( false);
-		Tango::Except::throw_exception( "",
-				error_mesg,
-				"Serial2::open()");
+		::close(fd);
+		ERROR_STREAM << "Flow control DTRDSR isn't supported yet!"
+			<< string(strerror(errno)) << endl;
+		return;
 	} else if (flowcontrol == "none") {
 		// Make nothing
 	} else {
-		string error_mesg = "Error setting flow control parameter!"
-			+ string(strerror( errno ));
-		ERROR_STREAM << error_mesg << endl;
-		assert( false);
-		Tango::Except::throw_exception( "",
-				error_mesg,
-				"Serial2::open()");
+		::close(fd);
+		ERROR_STREAM << "Error setting flow control parameter!"
+			<< string(strerror(errno)) << endl;
+		return;
 	}
 
 	// Set necessary serial parameters
-	if (tcsetattr(fd, TCSADRAIN, &options) == -1)
-	{
-		string error_mesg = "Error setting all serial parameters!"
-			+ string(strerror( errno ));
-		ERROR_STREAM << error_mesg << endl;
-		assert( false);
-		Tango::Except::throw_exception( "",
-				error_mesg,
-				"Serial2::open()");
+	if (tcsetattr(fd, TCSADRAIN, &options) == -1) {
+		::close(fd);
+		ERROR_STREAM << "Error setting all serial parameters!"
+			<< string(strerror(errno)) << endl;
+		return;
 	}
 
-	connecting = true;
+}
+
+int Serial2::input_queue_length()
+{
+	int len;
+	if (ioctl(fd, TIOCINQ, &len) == -1)
+		return -1;
+	return len;
+}
+
+int Serial2::output_queue_length()
+{
+	int len;
+	if (ioctl(fd, TIOCOUTQ, &len) == -1)
+		return -1;
+	return len;
 }
 
 void Serial2::close()
 {
 	DEBUG_STREAM << "Closing the file descriptor..." << endl;
 
-	connecting = false;
+	int output_len = max(output_queue_length(), 0);
+	int input_len = max(input_queue_length(), 0) + data.size();
 
-	int input_len = input_queue_length() + data.size();
-	int output_len = output_queue_length();
-
-	if( input_len + output_len)
+	if(input_len + output_len)
 	{
-		WARN_STREAM << " Bytes dropped: " << input_len << " input, "
+		WARN_STREAM << " Bytes dropped: " << input_len << " (" << data.size() << ") input, "
 			<< output_len << " output" << endl;
 	}
 
@@ -926,156 +844,129 @@ void Serial2::close()
 		ERROR_STREAM << "Error closing file descriptor: "
 			<< strerror(errno) << endl;
 	}
-
 	data.clear();
-
-	DEBUG_STREAM << "File descriptor closed" << endl;
 }
 
-int Serial2::input_queue_length()
+ssize_t Serial2::_write(int fd, const void *buf, size_t count)
 {
-	int len;
-	if (ioctl(fd, FIONREAD, &len) == -1)
+	errno = 0;
+	int ret = ::write(fd, buf, count);
+	conn_state = errno;
+	return ret;
+}
+
+void Serial2::_read(size_t bytes_to_read)
+{
+  unsigned char buffer[10000];
+  size_t bytes_total = data.size();
+
+  while (bytes_total < bytes_to_read) {
+    if (! wait_for(READ))
+      goto timeout;
+
+    size_t count = min((size_t)max(input_queue_length(), 0), sizeof(buffer));
+    ssize_t bytes_readed = ::read(fd, buffer, count);
+
+    if (bytes_readed > 0) {
+      data.insert(data.end(), &buffer[0], &buffer[bytes_readed]);
+      bytes_total += bytes_readed;
+    } else if (bytes_readed == 0) {
+      if (multiplexing == SELECT)
+        goto error;
+      /* Continue if multiplexing == SLEEP */
+    }	else { /* bytes_readed < 0 */
+      goto error;
+    }
+  }
+  return;
+error:
+  check_state(false);
+  sleep(tout);
+timeout:
+  Tango::Except::throw_exception(
+    "", "Timeout expired", __PRETTY_FUNCTION__);
+}
+
+void Serial2::check_state(bool forcing)
+{
+	string mesg;
+
+	if (forcing)
+		(void)_write(fd, NULL, 0);
+
+	switch(conn_state)
 	{
-		len = 0;
-	}
-	return len;
-}
-
-int Serial2::output_queue_length()
-{
-	int len;
-	if (ioctl(fd, TIOCOUTQ, &len) == -1)
-	{
-		len = 0;
-	}
-	return len;
-}
-
-void Serial2::check_connection( )
-{
-	timeval tv;
-	timerclear( &tv );
-	if( wait_for( WRITE, &tv ) )
-	{
-		if( connecting )
-		{
-			reconnections++;
-			connecting = false;
-		}
-
-		set_state( Tango::ON );
-		set_status( "Connected" );
-	}
-}
-
-bool Serial2::read(timeval *tv)
-{
-	int bytes_total = 0, bytes_to_read = input_queue_length();
-	do
-	{
-		int len = (bytes_to_read - bytes_total) > BUFFER_SIZE?
-			BUFFER_SIZE : (bytes_to_read - bytes_total);
-
-		int bytes_readed = ::read(fd, buffer, len);
-
-		if( bytes_readed < 0 )
-		{
-			DEBUG_STREAM << strerror( errno ) << " (" << errno << ")" << endl;
-			if( errno == EINTR)
-			{
-				continue;
-			}
-		}
-		else if( bytes_readed == 0 )
-		{
-			close();
-			open();
-
-			string error_mesg = "Server shutting down";
-			DEBUG_STREAM << error_mesg << endl;
-
-			set_state(Tango::FAULT);
-			set_status(error_mesg);
-
-			sleep( tv->tv_sec );
-			usleep( tv->tv_usec );
-			timerclear( tv );
-
-			return false;
-		}
-		else /* bytes_readed > 0 */
-		{
-			data.insert(data.end(), &buffer[0], &buffer[bytes_readed]);
-			bytes_total += bytes_readed;
-		}
-	}
-	while (bytes_total != bytes_to_read);
-
-	return true;
-}
-
-bool Serial2::wait_for( event_type et, timeval *tv )
-{
-	switch(multiplexing) {
-		case SLEEP:
-			return wait_for_with_sleep(et, tv);
+		case 0: /* Success */
+			set_state(Tango::ON);
+			set_status("Connected");
+		case EINTR:
+		case EAGAIN:
+			return;
+		case EHOSTUNREACH:
+			mesg = "No route to host";
+			break;
+		case ECONNREFUSED:
+			mesg = "Connection refused";
+			break;
+		case EPIPE:
+			mesg = "Broken pipe";
+			break;
+		case ETIMEDOUT:
+			mesg = "Connection timed out";
+			break;
+		case ECONNRESET:
+			mesg = "Connection reset by peer";
+			break;
+		case EISCONN:
+		case EALREADY:
+		case EINPROGRESS:
+		case EADDRNOTAVAIL:
+		case EAFNOSUPPORT:
+		case EBADF:
+		case ENOTSOCK:
+		case EPROTOTYPE:
+		case EIO:
+		case ELOOP:
+		case ENAMETOOLONG:
+		case ENOENT:
+		case ENOTDIR:
 		default:
-			return wait_for_with_select(et, tv);
+			ERROR_STREAM << "Socket error " << conn_state
+				<< " not handled!" << endl;
+			assert(false);
+			break;
 	}
+
+	set_state(Tango::INIT);
+	set_status("Reconnecting due: " + mesg);
+	DEBUG_STREAM << "Reconnecting due: " << mesg << endl;
+
+	close();
+	resolve();
+	open();
+	reconnections += 1;
 }
 
-bool Serial2::wait_for_with_sleep( event_type et, timeval *tv )
+bool Serial2::wait_for(event_type et)
 {
-	struct timeval sleep_time;
-	sleep_time.tv_sec = 0;
-	sleep_time.tv_usec = 10000; /* 10 ms */
+	if (multiplexing == SLEEP) {
+		timeval twait;
+		timerclear(&twait);
+		twait.tv_usec = 10000;
+		return sleep(twait);
+	}
 
-	do {
-		switch( et )
-		{
-			case WRITE:
-				if( output_queue_length() == 0 )
-				{
-#ifndef NDEBUG
-					DEBUG_STREAM << "Ready to write" << endl;
-#endif
-					return true;
-				}
-				break;
-			case READ:
-				if( input_queue_length() != 0 )
-				{
-#ifndef NDEBUG
-					DEBUG_STREAM << "Ready to read" << endl;
-#endif
-					return read(tv);
-				}
-				break;
-		}
+	// multiplexing == SELECT
+	fd_set readfds;
+	fd_set writefds;
+	fd_set errorfds;
 
-		int usleep_ret = usleep(sleep_time.tv_usec);
-#ifndef NDEBUG
-		DEBUG_STREAM << "usleep(): " << usleep_ret << endl;
-#else
-		(void)usleep_ret;
-#endif
-		timersub(tv, &sleep_time, tv);
-	} while (timerisset(tv));
-
-	return false;
-}
-
-bool Serial2::wait_for_with_select( event_type et, timeval *tv )
-{
 	FD_ZERO(&errorfds);
 	FD_ZERO(&readfds);
 	FD_ZERO(&writefds);
-
 	FD_SET(fd, &errorfds);
 
-	switch( et )
-	{
+	switch (et) {
 		case WRITE:
 			FD_SET(fd, &writefds);
 			break;
@@ -1083,46 +974,32 @@ bool Serial2::wait_for_with_select( event_type et, timeval *tv )
 			FD_SET(fd, &readfds);
 			break;
 	}
-	int select_ret = select( fd + 1, &readfds, &writefds, &errorfds, tv );
 
-#ifndef NDEBUG
-	DEBUG_STREAM << "select(): " << select_ret << endl;
-#endif
+	int select_ret = select(fd + 1,	&readfds,
+			&writefds, &errorfds, &tout);
 
-	if( select_ret == -1 )
-	{
-		ERROR_STREAM << "Select() error " << select_ret << " not handled:" 
-			<< strerror( errno ) << endl;
-		assert( false );
-	}
-	else if( select_ret == 0 )
-	{
+	if (select_ret > 0) {
+		if (FD_ISSET(fd, &errorfds))
+			return false;
+		if (et == READ && FD_ISSET(fd, &readfds))
+			return true;
+		if (et == WRITE && FD_ISSET(fd, &writefds))
+			return true;
+		assert(false);
+		return false;
+	} else if (select_ret == 0) {
+		return false;
+	} else { // select_ret < 0
+		ERROR_STREAM << "Select() error " << select_ret
+			<< " not handled:" << strerror(errno) << endl;
 		return false;
 	}
-
-	if (FD_ISSET(fd, &errorfds))
-	{
-		ERROR_STREAM << "Select() error event not handled!" << endl;
-		assert( false );
-	}
-
-	if (FD_ISSET(fd, &writefds))
-	{
-#ifndef NDEBUG
-		DEBUG_STREAM << "Ready to write" << endl;
-#endif
-	}
-
-	if (FD_ISSET(fd, &readfds))
-	{
-#ifndef NDEBUG
-		DEBUG_STREAM << "Ready to read" << endl;
-#endif
-		return read(tv);
-	}
-	
-	return true;
+	assert(false);
+	return false;
 }
+
+void Serial2::resolve() {}
+
 
 /*----- PROTECTED REGION END -----*/	//	Serial2::namespace_ending
 } //	namespace
