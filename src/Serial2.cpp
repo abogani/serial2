@@ -533,7 +533,6 @@ void Serial2::write(const Tango::DevVarCharArray *argin)
 	vector<unsigned char> argin_data;
 	argin_data << *argin;
 	size_t bytes_total = 0, bytes_to_write = argin_data.size();
-	int olength;
 
 	while (bytes_total < bytes_to_write) {
 		int s = select(WRITE);
@@ -561,12 +560,10 @@ void Serial2::write(const Tango::DevVarCharArray *argin)
 	timeval twait;
 	timerclear(&twait);
 	twait.tv_usec = 1000;
-	olength = max(output_queue_length(), 0);
-	while ((bytes_total - olength) != bytes_to_write) {
+	while (max(output_queue_length(), 0) != 0) {
 		if (! sleep(twait))
 			goto timeout;
 		timeradd(&twait, &twait, &twait);
-		olength = max(output_queue_length(), 0);
 	}
 
 	return;
