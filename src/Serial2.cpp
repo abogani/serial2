@@ -868,6 +868,7 @@ void Serial2::_read(size_t bytes_to_read)
 {
 	unsigned char buffer[10000];
 	size_t bytes_total = data.size();
+	ssize_t bytes_readed;
 
 	while (bytes_total < bytes_to_read) {
 		int s = select(READ);
@@ -878,7 +879,7 @@ void Serial2::_read(size_t bytes_to_read)
 		else { /* s > 0 */ }
 
 		size_t count = min((size_t)max(input_queue_length(), 0), sizeof(buffer));
-		ssize_t bytes_readed = ::read(fd, buffer, count);
+		bytes_readed = ::read(fd, buffer, count);
 
 		if (bytes_readed > 0) {
 			data.insert(data.end(), &buffer[0], &buffer[bytes_readed]);
@@ -944,7 +945,7 @@ void Serial2::check_state(bool forcing)
 		case ENOENT:
 		case ENOTDIR:
 		default:
-			ERROR_STREAM << "Socket error " << conn_state
+			ERROR_STREAM << "Serial error " << conn_state
 				<< " not handled!" << endl;
 			assert(false);
 			break;
