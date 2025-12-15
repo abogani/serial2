@@ -342,7 +342,7 @@ void Serial2::get_device_property()
 	DEBUG_STREAM << "Connecting to " << serialline
 		<< " using " << baudrate << " " << charlength << " " << parity 
 		<< " " << stopbits << " (" << flowcontrol << ") and " << iOMultiplexing 
-		<< " IO multiplexing type"  << " with a timeout of " << timeout << " ms "<< endl;
+		<< " IO multiplexing type"  << " with a timeout of " << timeout << " ms "<< std::endl;
 
 	timeout_timeval.tv_sec = timeout / 1000;
 	timeout_timeval.tv_usec = timeout % 1000 * 1000;
@@ -369,7 +369,7 @@ void Serial2::check_mandatory_property(Tango::DbDatum &class_prop, Tango::DbDatu
 		append_status(tms.str());
 		mandatoryNotDefined = true;
 		/*----- PROTECTED REGION ID(Serial2::check_mandatory_property) ENABLED START -----*/
-		cerr << tms.str() << " for " << device_name << endl;
+		std::cerr << tms.str() << " for " << device_name << std::endl;
 		
 		/*----- PROTECTED REGION END -----*/	//	Serial2::check_mandatory_property
 	}
@@ -400,7 +400,7 @@ void Serial2::always_executed_hook()
 	if (! init_error.empty()) {
 		set_state(Tango::FAULT);
 		set_status(init_error);
-		DEBUG_STREAM << init_error << endl;
+		DEBUG_STREAM << init_error << std::endl;
 	} else {
 		check_state(true);
 	}
@@ -524,7 +524,7 @@ void Serial2::write(const Tango::DevVarCharArray *argin)
 {
 	DEBUG_STREAM << "Serial2::Write()  - " << device_name << std::endl;
 	/*----- PROTECTED REGION ID(Serial2::write) ENABLED START -----*/
-	vector<unsigned char> argin_data;
+	std::vector<unsigned char> argin_data;
 	argin_data << *argin;
 	size_t bytes_total = 0, bytes_to_write = argin_data.size();
 
@@ -534,7 +534,7 @@ void Serial2::write(const Tango::DevVarCharArray *argin)
 				"", init_error.c_str(), __PRETTY_FUNCTION__);
 	}
 
-	if (max(output_queue_length(), 0) != 0) {
+	if (std::max(output_queue_length(), 0) != 0) {
 		close();
 		resolve();
 		open();
@@ -568,7 +568,7 @@ void Serial2::write(const Tango::DevVarCharArray *argin)
 	timeval twait;
 	timerclear(&twait);
 	twait.tv_usec = 1000;
-	while (max(output_queue_length(), 0) != 0) {
+	while (std::max(output_queue_length(), 0) != 0) {
 		if (! sleep(twait))
 			goto timeout;
 		timeradd(&twait, &twait, &twait);
@@ -613,7 +613,7 @@ Tango::DevVarCharArray *Serial2::read(Tango::DevLong argin)
 	_read(argin);
 
 	argout = new Tango::DevVarCharArray();
-	vector<unsigned char> transfer(data.begin(), data.begin() + argin);
+	std::vector<unsigned char> transfer(data.begin(), data.begin() + argin);
 	data.erase(data.begin(), data.begin() + argin);
 	*argout << transfer;
 	/*----- PROTECTED REGION END -----*/	//	Serial2::read
@@ -663,7 +663,7 @@ Tango::DevVarCharArray *Serial2::read_until(const Tango::DevVarCharArray *argin)
 	} while (true);
 
 	argout = new Tango::DevVarCharArray();
-	vector<unsigned char> transfer(data.begin(), data.begin() + pos +1);
+	std::vector<unsigned char> transfer(data.begin(), data.begin() + pos +1);
 	data.erase(data.begin(), data.begin() + pos + 1);
 	*argout << transfer;
 	/*----- PROTECTED REGION END -----*/	//	Serial2::read_until
@@ -708,11 +708,11 @@ bool Serial2::sleep(timeval tv)
 
 void Serial2::open()
 {
-	DEBUG_STREAM << "Creating the file descriptor..." << endl;
+	DEBUG_STREAM << "Creating the file descriptor..." << std::endl;
 
 	if ((fd = ::open(serialline.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK)) == -1) {
 		ERROR_STREAM << "Open device node failed: "
-			<< string(strerror(errno)) << endl;
+			<< std::string(strerror(errno)) << std::endl;
 		return;
 	}
 
@@ -726,7 +726,7 @@ void Serial2::open()
 	options.c_iflag &= ~(INPCK | ISTRIP);
 
 	// Baud rate
-	map<unsigned long, speed_t> baudrates_db;
+	std::map<unsigned long, speed_t> baudrates_db;
 	baudrates_db[4000000] = B4000000; baudrates_db[3500000] = B3500000;
 	baudrates_db[3000000] = B3000000; baudrates_db[2500000] = B2500000;
 	baudrates_db[2000000] = B2000000; baudrates_db[1500000] = B1500000;
@@ -746,7 +746,7 @@ void Serial2::open()
 	cfsetospeed(&options, baudrates_db[baudrate]);
 
 	// Data bits
-	map<unsigned short, tcflag_t> databits_db;
+	std::map<unsigned short, tcflag_t> databits_db;
 	databits_db[8] = CS8;
 	databits_db[7] = CS7;
 	databits_db[6] = CS6;
@@ -765,7 +765,7 @@ void Serial2::open()
 		default:
 			::close(fd);
 			ERROR_STREAM << "Error setting stop bits parameter!"
-				<< string(strerror(errno)) << endl;
+				<< std::string(strerror(errno)) << std::endl;
 			return;
 	}
 
@@ -782,7 +782,7 @@ void Serial2::open()
 	} else {
 		::close(fd);
 		ERROR_STREAM << "Error setting parity bits parameter!"
-			<< string(strerror(errno)) << endl;
+			<< std::string(strerror(errno)) << std::endl;
 		return;
 	}
 
@@ -798,14 +798,14 @@ void Serial2::open()
 	} else if (flowcontrol == "dtrdsr") {
 		::close(fd);
 		ERROR_STREAM << "Flow control DTRDSR isn't supported yet!"
-			<< string(strerror(errno)) << endl;
+			<< std::string(strerror(errno)) << std::endl;
 		return;
 	} else if (flowcontrol == "none") {
 		// Make nothing
 	} else {
 		::close(fd);
 		ERROR_STREAM << "Error setting flow control parameter!"
-			<< string(strerror(errno)) << endl;
+			<< std::string(strerror(errno)) << std::endl;
 		return;
 	}
 
@@ -813,7 +813,7 @@ void Serial2::open()
 	if (tcsetattr(fd, TCSADRAIN, &options) == -1) {
 		::close(fd);
 		ERROR_STREAM << "Error setting all serial parameters!"
-			<< string(strerror(errno)) << endl;
+			<< std::string(strerror(errno)) << std::endl;
 		return;
 	}
 
@@ -837,21 +837,21 @@ int Serial2::output_queue_length()
 
 void Serial2::close()
 {
-	DEBUG_STREAM << "Closing the file descriptor..." << endl;
+	DEBUG_STREAM << "Closing the file descriptor..." << std::endl;
 
-	int output_len = max(output_queue_length(), 0);
-	int input_len = max(input_queue_length(), 0) + data.size();
+	int output_len = std::max(output_queue_length(), 0);
+	int input_len = std::max(input_queue_length(), 0) + data.size();
 
 	if(input_len + output_len)
 	{
 		WARN_STREAM << " Bytes dropped: " << input_len << " (" << data.size() << ") input, "
-			<< output_len << " output" << endl;
+			<< output_len << " output" << std::endl;
 	}
 
 	if (::close(fd) == -1)
 	{
 		ERROR_STREAM << "Error closing file descriptor: "
-			<< strerror(errno) << endl;
+			<< strerror(errno) << std::endl;
 	}
 	data.clear();
 }
@@ -878,7 +878,7 @@ void Serial2::_read(size_t bytes_to_read)
 			goto error;
 		else { /* s > 0 */ }
 
-		size_t count = min((size_t)max(input_queue_length(), 0), sizeof(buffer));
+		size_t count = std::min((size_t)std::max(input_queue_length(), 0), sizeof(buffer));
 		bytes_readed = ::read(fd, buffer, count);
 
 		if (bytes_readed > 0) {
@@ -903,7 +903,7 @@ timeout:
 
 void Serial2::check_state(bool forcing)
 {
-	string mesg;
+	std::string mesg;
 
 	if (forcing)
 		(void)_write(fd, NULL, 0);
@@ -946,14 +946,14 @@ void Serial2::check_state(bool forcing)
 		case ENOTDIR:
 		default:
 			ERROR_STREAM << "Serial error " << conn_state
-				<< " not handled!" << endl;
+				<< " not handled!" << std::endl;
 			assert(false);
 			break;
 	}
 
 	set_state(Tango::INIT);
 	set_status("Reconnecting due: " + mesg);
-	DEBUG_STREAM << "Reconnecting due: " << mesg << endl;
+	DEBUG_STREAM << "Reconnecting due: " << mesg << std::endl;
 
 	close();
 	resolve();
